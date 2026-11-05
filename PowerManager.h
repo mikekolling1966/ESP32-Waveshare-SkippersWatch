@@ -100,6 +100,13 @@ public:
     // ladder may shorten it further — see displayTimeoutMs().
     void setDisplayTimeout(uint32_t ms) { _user_timeout_ms = ms; }
 
+    // Local addition: true if this wake came from the motion sensor (shake), not the button
+    static bool wokeFromMotion() {
+        return esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT1 &&
+               (esp_sleep_get_ext1_wakeup_status() & (1ULL << WAKE_MOTION_PIN)) &&
+               !(esp_sleep_get_ext1_wakeup_status() & (1ULL << WAKE_BUTTON_PIN));
+    }
+
     // Call once at end of app.begin(); records why we woke, starts the idle timer and
     // the awake ceiling, and subscribes the Arduino loop task to the task watchdog
     void begin(esp_sleep_wakeup_cause_t cause);
@@ -201,6 +208,8 @@ private:
     // deep-sleep wake source (ext1 ANY_HIGH). Touch cannot wake from deep sleep on this board: the FT3168 INT is GPIO38, not an RTC pin. The same key is the AXP2101 power
     // key: ~6 s held cuts power in hardware, whatever the firmware does.
     static constexpr uint8_t WAKE_BUTTON_PIN = 10;
+    static constexpr uint8_t WAKE_MOTION_PIN = 21;   // local addition: QMI8658 INT1 (shake)
+    bool _motion_armed = false;
 
     // Pins latched through deep sleep: panel and touch reset lines held HIGH so both chips
     // stay in their sleep modes (a floating reset could reboot them into active mode), and

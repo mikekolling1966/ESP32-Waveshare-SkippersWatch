@@ -89,7 +89,8 @@ void WatchApplication::begin() {
     // Timezone for the Clock page: Finland (EET=UTC+2, EEST=UTC+3, DST last-Sun-Mar
     // 03:00 → last-Sun-Oct 04:00). Set once so localtime_r renders local time with DST;
     // the system clock itself is UTC, disciplined by GNSS DATETIME_DELTA (handleTimeSync).
-    setenv("TZ", "EET-2EEST,M3.5.0/3,M10.5.0/4", 1);
+    // Local change: UK time (GMT / BST, DST last-Sun-Mar 01:00 -> last-Sun-Oct 02:00).
+    setenv("TZ", LOCAL_TZ, 1);
     tzset();
 
     // Shared I2C bus (touch + PMIC). The PMIC comes up first: the battery level decides
@@ -150,7 +151,10 @@ void WatchApplication::begin() {
     // Restore the last-active page from RTC, else NVS, else Navigation. The actual
     // _screenMgr.begin(start_page) is deferred to after the dark listen window below, so
     // the page is revealed only once data has had a chance to arrive.
-    const uint8_t start_page = this->resolveStartPage();
+    uint8_t start_page = this->resolveStartPage();
+    // Local addition: shake wake → Clock page (the remembered page is left untouched)
+    _shake_wake = PowerManager::wokeFromMotion();
+    if (_shake_wake) start_page = CLOCK_PAGE;
 
     // A true power-on (power was cut, e.g. PWR held ~6 s) gets the startup screen; a deep-
     // sleep wake goes straight to the page. RTC-domain resets other than POWERON (watchdog,
@@ -164,7 +168,9 @@ void WatchApplication::begin() {
     // already in hand, THEN ramp the brightness. The radio inrush and the
     // panel light-up are separated in time.
     _touch.begin();                   // capacitive touch (shared I2C) — polled while awake
-    _receiver.begin(ESP_NOW_CHANNEL); // radio up first, panel still dark
+    // Local addition: a shake wake only shows the time, so the radio stays off (cheap
+    // wake); otherwise ESP-NOW + WiFi/SignalK come up here as before.
+    if (!_shake_wake) this->startRadio();
 
     if (power_on) {
         // The startup screen is lit (with the normal soft ramp) while the radio listens,
@@ -239,7 +245,7 @@ void WatchApplication::loop() {
     // User's prevent-sleep choice and wake time → power policy. PowerManager decides
     // whether they may be honoured as such (the low-charge ladder overrides both).
     _power.setPreventSleep(_setupUI.preventSleep());
-    _power.setDisplayTimeout(_setupUI.waketimeMs());
+    _power.setDisplayTimeout(_shake_wake ? SHAKE_DISPLAY_MS : _setupUI.waketimeMs());
 
     // Backlight clamp for the current power state: low-charge ladder on battery, idle
     // dim in either stay-awake mode. No-ops unless the ceiling actually moved.
@@ -379,12 +385,26 @@ void WatchApplication::handleLvglTick(const uint32_t now) {
 // onTouchDrag/onTouchEnd to it. Otherwise the release is classified into a discrete
 // gesture and handled by handleGesture(). While the page menu is open no page sees the
 // touch at all.
+// Local addition: ESP-NOW receiver + SignalK task (WiFi, clock sync, data), once per wake.
+// Once WiFi joins, ESP-NOW listens on the access point's channel instead of ESP_NOW_CHANNEL.
+void WatchApplication::startRadio() {
+    if (_radio_started) return;
+    _radio_started = true;
+    _receiver.begin(ESP_NOW_CHANNEL);
+    _signalk.begin();
+}
+
 void WatchApplication::handleTouch(const uint32_t now) {
     _touch.poll(now);
 
     // Touch-down: decide whether the active page wants this touch as a drag.
     if (_touch.justPressed()) {
         _power.notifyActivity();
+        if (_shake_wake) {   // local addition: touching a shake wake makes it a normal wake
+            _shake_wake = false;
+            this->startRadio();
+            Serial.println("[power] shake wake -> normal wake (touch)");
+        }
         if (this->overlayVisible()) {
             _touch_dragging = false;
             return;

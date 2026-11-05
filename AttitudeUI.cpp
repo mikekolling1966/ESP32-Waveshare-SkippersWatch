@@ -27,7 +27,7 @@ void AttitudeUI::update() {
     uint32_t rx = _receiver.lastHeadingRxMillis();
     bool ok = (rx > 0) && ((millis() - rx) < HEADING_TIMEOUT_MS);
 
-    if (ok) {
+    if (ok && h.pitch_x10 != ATT_UNKNOWN && h.roll_x10 != ATT_UNKNOWN) {
         int16_t pitch = h.getPitchDeg();   // + = bow up,        - = bow down
         int16_t roll  = h.getRollDeg();    // + = starboard heel, - = port heel
 

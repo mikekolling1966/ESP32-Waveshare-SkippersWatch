@@ -59,6 +59,30 @@ void PmuRails::enterSleep() {
     _pmu->disableSystemVoltageMeasure();
 }
 
+bool PmuRails::armImuWakeOnMotion() {
+    if (_wire == nullptr) return false;
+    uint8_t id = 0, ctrl1 = 0, st = 0;
+    if (!this->readReg(QMI8658_ADDR, QMI_REG_WHO_AM_I, id) || id != QMI_WHO_AM_I) return false;
+    uint8_t fails = 0;
+    if (!this->writeReg(QMI8658_ADDR, QMI_REG_CTRL7, 0x00)) fails++;                 // sensors off while configuring
+    if (!this->readReg(QMI8658_ADDR, QMI_REG_CTRL1, ctrl1)) fails++;
+    ctrl1 = (ctrl1 & ~QMI_CTRL1_SENSOR_DISABLE) | QMI_CTRL1_INT1_EN;                // oscillator on, INT1 out
+    if (!this->writeReg(QMI8658_ADDR, QMI_REG_CTRL1, ctrl1)) fails++;
+    if (!this->writeReg(QMI8658_ADDR, QMI_REG_CTRL2, QMI_CTRL2_2G_21HZ_LP)) fails++;
+    if (!this->writeReg(QMI8658_ADDR, QMI_REG_CAL1_L, WOM_THRESHOLD_MG)) fails++;
+    // INT1, initial level LOW (ext1 wakes on HIGH), blanking
+    if (!this->writeReg(QMI8658_ADDR, QMI_REG_CAL1_H, 0x80 | (WOM_BLANKING_SAMPLES & 0x3F))) fails++;
+    if (!this->writeReg(QMI8658_ADDR, QMI_REG_CTRL9, QMI_CMD_WRITE_WOM)) fails++;
+    for (int i = 0; i < 20; i++) {                                                   // wait for CmdDone
+        if (this->readReg(QMI8658_ADDR, QMI_REG_STATUSINT, st) && (st & 0x80)) break;
+        delay(2);
+    }
+    this->writeReg(QMI8658_ADDR, QMI_REG_CTRL9, QMI_CMD_ACK);
+    this->readReg(QMI8658_ADDR, QMI_REG_STATUS1, st);                                // clear any stale flag
+    if (!this->writeReg(QMI8658_ADDR, QMI_REG_CTRL7, 0x01)) fails++;                 // accel on (low power)
+    return fails == 0;
+}
+
 void PmuRails::summary(char* out, size_t len) const {
     if (_pmu == nullptr) {
         snprintf(out, len, "--");

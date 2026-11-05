@@ -5,6 +5,7 @@
 #include <Arduino_GFX_Library.h>
 #include "ui.h"
 #include "ESPNowReceiver.h"
+#include "SignalKSource.h"
 #include "NavigationUI.h"
 #include "BatteryUI.h"
 #include "WeatherUI.h"
@@ -61,6 +62,8 @@ private:
 
     // ESP-NOW channel — must match the fleet AP channel (verrokki = 6)
     static constexpr uint8_t ESP_NOW_CHANNEL = 6;
+    // Local timezone (POSIX TZ) for the Clock page and NTP
+    static constexpr const char* LOCAL_TZ = "GMT0BST,M3.5.0/1,M10.5.0";
 
     // Dark listen window on wake: hold the panel black while the radio (just
     // brought up) catches a fresh broadcast, so the first LIT frame shows real
@@ -114,6 +117,14 @@ private:
     // Core instances
     PanelBrightness _brightness;
     ESPNowReceiver _receiver;
+    SignalKSource  _signalk{_receiver};   // local addition: SignalK over WiFi
+    // Local addition: a shake wake shows the Clock with the radio off, for a short time;
+    // the first touch turns it into a normal wake (radio up, normal display timeout).
+    bool _shake_wake = false;
+    bool _radio_started = false;
+    void startRadio();
+    static constexpr uint8_t  CLOCK_PAGE = 5;            // carousel index of ClockUI
+    static constexpr uint32_t SHAKE_DISPLAY_MS = 5000;
     DemoSource     _demo;
     NavigationUI   _navUI;
     BatteryUI      _batteryUI;

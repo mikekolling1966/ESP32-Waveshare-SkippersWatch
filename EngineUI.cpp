@@ -1,5 +1,6 @@
 #include "EngineUI.h"
 #include "ui.h"
+#include "LocalValues.h"
 
 // === P U B L I C ===
 
@@ -12,6 +13,9 @@ lv_obj_t* EngineUI::getLvglScreen() const {
 
 void EngineUI::begin() {
     if (_initialized) return;
+    // Local change: two fuel tanks on top (exhaust temperature not available on this boat)
+    lv_label_set_text(ui_LabelExhaustCTitle, "Port L");
+    lv_label_set_text(ui_LabelFuelLTitle, "Stbd L");
     this->showWaiting();
     _initialized = true;
 }
@@ -25,28 +29,15 @@ void EngineUI::update() {
 
     const uint32_t now = millis();
 
-    // --- Exhaust temperature (Kelvin → °C) ---
-    HALMETEngineDelta eng = _receiver.getEngineData();
-    uint32_t eng_rx = _receiver.lastEngineRxMillis();
-    bool eng_ok = (eng_rx > 0) && ((now - eng_rx) < ENGINE_TIMEOUT_MS);
-    if (eng_ok) {
+    // --- Port / starboard fuel litres (LocalValues, from SignalK) ---
+    {
         char buf[16];
-        snprintf(buf, sizeof(buf), "%.0f", eng.exhaust_temp_k - 273.15f);
-        lv_label_set_text(ui_LabelExhaustCValue, buf);
-    } else {
-        lv_label_set_text(ui_LabelExhaustCValue, "---");
-    }
-
-    // --- Fuel (ratio 0..1 → liters) ---
-    HALMETTankDelta tank = _receiver.getTankData();
-    uint32_t tank_rx = _receiver.lastTankRxMillis();
-    bool tank_ok = (tank_rx > 0) && ((now - tank_rx) < TANK_TIMEOUT_MS);
-    if (tank_ok) {
-        char buf[16];
-        snprintf(buf, sizeof(buf), "%.0f", tank.fuel_level_ratio * FUEL_TANK_CAPACITY_L);
-        lv_label_set_text(ui_LabelFuelLValue, buf);
-    } else {
-        lv_label_set_text(ui_LabelFuelLValue, "---");
+        const float port = LocalValues::get(LocalValues::PORT_FUEL_L);
+        const float stbd = LocalValues::get(LocalValues::STBD_FUEL_L);
+        if (isnan(port)) lv_label_set_text(ui_LabelExhaustCValue, "---");
+        else { snprintf(buf, sizeof(buf), "%.0f", port); lv_label_set_text(ui_LabelExhaustCValue, buf); }
+        if (isnan(stbd)) lv_label_set_text(ui_LabelFuelLValue, "---");
+        else { snprintf(buf, sizeof(buf), "%.0f", stbd); lv_label_set_text(ui_LabelFuelLValue, buf); }
     }
 
     // --- Fresh water (ratio 0..1 → liters) ---

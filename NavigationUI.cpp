@@ -36,7 +36,7 @@ void NavigationUI::update() {
     HeadingData hdg = _receiver.getData();
     uint32_t hdg_rx = _receiver.lastHeadingRxMillis();
     bool hdg_ok = (hdg_rx > 0) && ((now - hdg_rx) < HEADING_TIMEOUT_MS);
-    if (hdg_ok) {
+    if (hdg_ok && hdg.heading_true_x10 != HDG_UNKNOWN) {
         char buf[8];
         snprintf(buf, sizeof(buf), "%03u", hdg.getHeadingTrueDeg());
         lv_label_set_text(ui_LabelHDGValue, buf);
@@ -60,8 +60,12 @@ void NavigationUI::update() {
             lv_label_set_text(ui_LabelCOGValue, "---");
         }
 
-        snprintf(buf, sizeof(buf), "%.1f", gnss.getSogKnots());
-        lv_label_set_text(ui_LabelSOGValue, buf);
+        if (gnss.sog_knots_x10 == SOG_UNKNOWN) {
+            lv_label_set_text(ui_LabelSOGValue, "--.-");
+        } else {
+            snprintf(buf, sizeof(buf), "%.1f", gnss.getSogKnots());
+            lv_label_set_text(ui_LabelSOGValue, buf);
+        }
 
         char pos[40];
         this->formatPosition(gnss.lat_deg, gnss.lon_deg, pos, sizeof(pos));

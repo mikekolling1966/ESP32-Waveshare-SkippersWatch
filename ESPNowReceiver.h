@@ -56,6 +56,9 @@ public:
     // their placeholders until the new source delivers.
     void setDemoMode(bool on);
     void injectFrame(const uint8_t* data, int data_len);
+    // Local addition: frames built from SignalK (SignalKSource). Treated exactly like radio
+    // frames (stored outside demo mode, counted in the Status frame count).
+    void injectNetworkFrame(const uint8_t* data, int data_len) { dispatch(data, data_len, false); }
 
     // Valid radio frames received during this wake (demo frames excluded). Static: the
     // receiver's state is static, and PowerManager reads it at sleep entry.

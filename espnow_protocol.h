@@ -213,6 +213,11 @@ namespace ESPNow {
         int16_t  getRollDeg()        const { return roll_x10   / 10; }
     };
 
+    // Local change: "not known" sentinels for HeadingData / GnssData fields
+    constexpr uint16_t HDG_UNKNOWN = 0xFFFF;
+    constexpr int16_t  ATT_UNKNOWN = INT16_MIN;
+    constexpr uint16_t SOG_UNKNOWN = 0xFFFF;
+
     // Convert HeadingDelta (float radians, wire format) to HeadingData (int x10, internal)
     inline HeadingData convertDeltaToData(const HeadingDelta& delta) {
         HeadingData data;
@@ -221,12 +226,13 @@ namespace ESPNow {
         // Heading: compass sends 0–2π, cast to uint16_t gives 0–3599
         float hdg_mag_x10  = delta.heading_rad      * RAD_TO_DEG_X10;
         float hdg_true_x10 = delta.heading_true_rad * RAD_TO_DEG_X10;
-        data.heading_mag_x10  = (uint16_t)hdg_mag_x10;
-        data.heading_true_x10 = (uint16_t)hdg_true_x10;
+        // Local change: NAN (field not known, e.g. SignalK without attitude) → sentinel
+        data.heading_mag_x10  = std::isnan(hdg_mag_x10)  ? HDG_UNKNOWN : (uint16_t)hdg_mag_x10;
+        data.heading_true_x10 = std::isnan(hdg_true_x10) ? HDG_UNKNOWN : (uint16_t)hdg_true_x10;
 
         // Pitch and roll: signed, keep sign
-        data.pitch_x10 = (int16_t)(delta.pitch_rad * RAD_TO_DEG_X10);
-        data.roll_x10  = (int16_t)(delta.roll_rad  * RAD_TO_DEG_X10);
+        data.pitch_x10 = std::isnan(delta.pitch_rad) ? ATT_UNKNOWN : (int16_t)(delta.pitch_rad * RAD_TO_DEG_X10);
+        data.roll_x10  = std::isnan(delta.roll_rad)  ? ATT_UNKNOWN : (int16_t)(delta.roll_rad  * RAD_TO_DEG_X10);
 
         return data;
     }
@@ -275,7 +281,8 @@ namespace ESPNow {
         // COG is NaN when stationary (UB cast → 0xFFFF garbage) — tracked separately from fix.
         data.cog_valid     = delta.fix_ok && !std::isnan(delta.cog_true_rad);
         data.cog_true_x10  = data.cog_valid ? (uint16_t)(delta.cog_true_rad * RAD_TO_DEG_X10) : 0;
-        data.sog_knots_x10 = delta.fix_ok ? (uint16_t)(delta.sog_ms * MS_TO_KNOTS_X10) : 0;
+        data.sog_knots_x10 = !delta.fix_ok ? 0 : std::isnan(delta.sog_ms) ? SOG_UNKNOWN
+                                              : (uint16_t)(delta.sog_ms * MS_TO_KNOTS_X10);
 
         // Position for the watch POS label — valid only with a fix (same flag as fix_ok now)
         data.lat_deg = delta.fix_ok ? delta.lat_deg : NAN;
