@@ -36,6 +36,9 @@ private:
     bool pollOnce();
     void pollHomeAssistant();
     float haState(const char* entity_id);
+    bool haGet(const char* entity_id, String& body);
+    void fetchTides();
+    uint32_t _last_tide_try_ms = 0;
     void resendCached();
     bool _remote = false;
     BatteryDelta _bat{};

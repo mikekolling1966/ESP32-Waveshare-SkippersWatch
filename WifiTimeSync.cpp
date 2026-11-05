@@ -90,6 +90,20 @@ bool WifiTimeSync::currentIsRemote() {
     return s_cached_net >= 0 && s_cached_net < (int)NUM_NETWORKS && WIFI_NETWORKS[s_cached_net].remote;
 }
 
+time_t WifiTimeSync::parseIsoOffset(const char* s) {
+    if (!s) return 0;
+    int y, mo, d, hh, mm, ss;
+    if (sscanf(s, "%d-%d-%dT%d:%d:%d", &y, &mo, &d, &hh, &mm, &ss) != 6) return 0;
+    time_t t = utcToEpoch(y, mo, d, hh, mm, ss);
+    const char* tz = s + 19;
+    while (*tz == '.' || (*tz >= '0' && *tz <= '9')) tz++;   // fractional seconds
+    if (*tz == '+' || *tz == '-') {
+        int oh = 0, om = 0;
+        if (sscanf(tz + 1, "%d:%d", &oh, &om) >= 1) t -= (*tz == '+' ? 1 : -1) * (oh * 3600 + om * 60);
+    }
+    return t;
+}
+
 bool WifiTimeSync::connect() {
     if (WiFi.status() == WL_CONNECTED) return true;
     WiFi.mode(WIFI_STA);

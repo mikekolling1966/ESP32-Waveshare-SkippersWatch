@@ -1,10 +1,23 @@
 #include "MenuUI.h"
 #include "ui.h"
 
+LV_IMG_DECLARE(ui_img_tides_png);        // local addition: SLS_project_WS/assets/tides.png
+LV_IMG_DECLARE(ui_img_nighttides_png);   // and nighttides.png
+
 // === P U B L I C ===
 
 void MenuUI::begin() {
     if (_initialized) return;
+    // Local addition: ninth (Tides) button in the free bottom-right slot, both icon sets
+    const lv_image_dsc_t* srcs[2] = { &ui_img_tides_png, &ui_img_nighttides_png };
+    lv_obj_t** dst[2] = { &s_tides_day, &s_tides_night };
+    for (int i = 0; i < 2; ++i) {
+        lv_obj_t* b = lv_imagebutton_create(ui_ContainerMenu);
+        lv_imagebutton_set_src(b, LV_IMAGEBUTTON_STATE_RELEASED, NULL, srcs[i], NULL);
+        lv_obj_set_size(b, 96, 96);
+        lv_obj_set_align(b, LV_ALIGN_BOTTOM_RIGHT);
+        *dst[i] = b;
+    }
     lv_obj_add_flag(ui_ContainerMenu, LV_OBJ_FLAG_HIDDEN);
     this->setNightMode(false);   // the export leaves both icon sets visible
     _visible = false;
@@ -72,6 +85,7 @@ void MenuUI::buttons(Button (&out)[BUTTON_COUNT]) {
         { ui_ImgButtonClock,      ui_ImgButtonClockNight,      PAGE_CLOCK      },
         { ui_ImgButtonSetup,      ui_ImgButtonSetupNight,      PAGE_SETUP      },
         { ui_ImgButtonCelestial,  ui_ImgButtonCelestialNight,  PAGE_CELESTIAL  },
+        { s_tides_day,            s_tides_night,               PAGE_TIDES      },
     };
     for (size_t i = 0; i < BUTTON_COUNT; ++i) out[i] = table[i];
 }

@@ -14,6 +14,7 @@
 #include "ClockUI.h"
 #include "SetupUI.h"
 #include "CelestialUI.h"
+#include "TidesUI.h"
 #include "LastPosition.h"
 #include "MenuUI.h"
 #include "StatusUI.h"
@@ -135,6 +136,7 @@ private:
     SetupUI        _setupUI;
     LastPosition   _lastPosition;   // Celestial's fallback when no live fix (before _celestialUI)
     CelestialUI    _celestialUI;
+    TidesUI        _tidesUI;   // local addition: ninth page
     MenuUI         _menu;
     TouchInput     _touch;
     ScreenManager  _screenMgr;

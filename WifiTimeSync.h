@@ -18,6 +18,8 @@ namespace WifiTimeSync {
     time_t utcToEpoch(int year, int month, int day, int hh, int mm, int ss);
     // "2026-11-05T09:03:35.090Z" → Unix seconds (fraction in *frac_s if given); 0 on failure
     time_t parseIso8601(const char* s, float* frac_s = nullptr);
+    // "2026-11-05T09:27:00+00:00" / "...Z" / "+01:00" -> Unix seconds; 0 on failure
+    time_t parseIsoOffset(const char* s);
 
     constexpr time_t VALID_EPOCH = 1577836800;   // 2020-01-01: below this the clock is unset
 }

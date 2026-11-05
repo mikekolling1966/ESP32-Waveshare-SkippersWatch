@@ -45,6 +45,7 @@ public:
         PAGE_CLOCK      = 5,
         PAGE_SETUP      = 6,
         PAGE_CELESTIAL  = 7,
+        PAGE_TIDES      = 8,   // local addition: Tides page, button created in code
     };
 
 private:
@@ -58,7 +59,10 @@ private:
 
     // One menu entry: its page and both icon buttons (same position, one visible)
     struct Button { lv_obj_t* day; lv_obj_t* night; int8_t page; };
-    static constexpr size_t BUTTON_COUNT = 8;
+    static constexpr size_t BUTTON_COUNT = 9;
+    // Local addition: the Tides buttons (bottom-right, the free grid slot), made in begin()
+    inline static lv_obj_t* s_tides_day = nullptr;
+    inline static lv_obj_t* s_tides_night = nullptr;
     static void buttons(Button (&out)[BUTTON_COUNT]);
 
 };

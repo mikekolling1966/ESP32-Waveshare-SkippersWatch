@@ -49,6 +49,9 @@ namespace SignalKPaths {
     constexpr const char* HA_STBD_FUEL_L = "sensor.manxman_fuel_starboard_remaining";  // litres
     constexpr const char* HA_PORT_FUEL_L = "sensor.manxman_fuel_port_remaining";       // litres
 
+    // Tides page (LAN and remote): attributes.events = [{time, height, event_type}, ...]
+    constexpr const char* HA_TIDES = "sensor.strood_tides";
+
     // Max age of a value's SignalK timestamp before it counts as stale
     constexpr int NAV_MAX_AGE_S   = 10;   // heading, attitude, position, SOG/COG, depth
     constexpr int OTHER_MAX_AGE_S = 300;  // weather (sensors report ~1/min)

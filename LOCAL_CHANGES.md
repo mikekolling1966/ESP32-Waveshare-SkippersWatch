@@ -26,6 +26,18 @@ receiver is still running, so gateways can be added later. Code changes are mark
 - Missing values show `---` instead of `nan` (NaN-safe converters in `espnow_protocol.h`).
 - Clock page uses UK time (`LOCAL_TZ` in `WatchApplication.h`) instead of Finland.
 
+## Tides page (page 9)
+Today's high and low waters at Rochester (Strood Pier), UKHO station 0109B, in local time:
+past tides dimmed, the next one marked `>`, and a "Next HW/LW in …" footer.
+- Data: TidalPlan (UKHO Admiralty API) -> Home Assistant sensor `sensor.strood_tides`
+  (package `homeassistant/strood_tides.yaml`, refreshed at startup and every 3 h) ->
+  `SignalKSource::fetchTides()`, which works on the LAN and remotely via Funnel.
+- `TideStore.h` keeps a week of tides in RTC memory, so the page works with no network
+  and survives deep sleep (cleared on power-on, then refetched).
+- `TidesUI` builds its container in code; the menu gets a ninth button in the free
+  bottom-right slot (`ui_img_tides_png.c` / `ui_img_nighttides_png.c`, generated from
+  `SLS_project_WS/assets/tides.png` / `nighttides.png`, not from SquareLine).
+
 ## Shake to show the time
 Before deep sleep the QMI8658 IMU is put into Wake-on-Motion (INT1 = GPIO21, armed as an
 ext1 wake source next to the PWR button). A shake wake shows the Clock for 5 s with the

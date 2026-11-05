@@ -8,6 +8,7 @@
 #include "SignalKPaths.h"
 #include "secrets.h"
 #include "LocalValues.h"
+#include "TideStore.h"
 
 namespace {
     constexpr const char* URL = SIGNALK_BASE_URL "/signalk/v1/api/vessels/self";
@@ -91,6 +92,7 @@ void SignalKSource::run() {
         const uint32_t ha_every = remote ? HA_REMOTE_INTERVAL_MS : HA_INTERVAL_MS;
         if (_last_ha_ms == 0 || t0 - _last_ha_ms >= ha_every) { _last_ha_ms = t0; pollHomeAssistant(); }
         resendCached();
+        fetchTides();
         const uint32_t spent = millis() - t0;
         delay(spent < POLL_INTERVAL_MS ? POLL_INTERVAL_MS - spent : 10);
     }
@@ -98,8 +100,9 @@ void SignalKSource::run() {
 
 // Home Assistant: one GET per entity (keep-alive), state parsed as a number; NAN if
 // unknown/unavailable or the request failed.
-float SignalKSource::haState(const char* entity_id) {
-    if (!entity_id || !entity_id[0]) return NAN;
+// GET /api/states/<entity> from Home Assistant (LAN, or HTTPS via Funnel in remote mode)
+bool SignalKSource::haGet(const char* entity_id, String& body) {
+    if (!entity_id || !entity_id[0]) return false;
     static HTTPClient http;
     static WiFiClientSecure tls;
     static bool tls_ready = false;
@@ -114,16 +117,23 @@ float SignalKSource::haState(const char* entity_id) {
     } else {
         begun = http.begin(url);
     }
-    if (!begun) return NAN;
+    if (!begun) return false;
     http.addHeader("Authorization", String("Bearer ") + HA_TOKEN);
     const int code = http.GET();
     if (code != 200) {
         if (!_ha_error_logged) { Serial.printf("[ha] %s -> HTTP %d\n", entity_id, code); _ha_error_logged = true; }
         http.end();
-        return NAN;
+        return false;
     }
-    String body = http.getString();
+    body = http.getString();
     http.end();
+    return true;
+}
+
+// Home Assistant: state parsed as a number; NAN if unknown/unavailable or the request failed.
+float SignalKSource::haState(const char* entity_id) {
+    String body;
+    if (!haGet(entity_id, body)) return NAN;
     JsonDocument doc;
     JsonDocument filter; filter["state"] = true;
     if (deserializeJson(doc, body, DeserializationOption::Filter(filter)) != DeserializationError::Ok) return NAN;
@@ -131,6 +141,38 @@ float SignalKSource::haState(const char* entity_id) {
     char* end = nullptr;
     const float v = strtof(st, &end);
     return (end && end != st && *end == 0) ? v : NAN;
+}
+
+// Tides: refetch the week of Strood Pier high/low waters when the RTC cache is empty/old
+void SignalKSource::fetchTides() {
+    if (HA_TOKEN[0] == 0) return;
+    const time_t now = time(nullptr);
+    if (now < WifiTimeSync::VALID_EPOCH || !TideStore::needsRefresh(now)) return;
+    if (_last_tide_try_ms && millis() - _last_tide_try_ms < 60000) return;   // retry at most once a minute
+    _last_tide_try_ms = millis();
+    String body;
+    if (!haGet(SignalKPaths::HA_TIDES, body)) return;
+    JsonDocument filter; filter["attributes"]["events"][0]["time"] = true;
+    filter["attributes"]["events"][0]["height"] = true;
+    filter["attributes"]["events"][0]["event_type"] = true;
+    JsonDocument doc;
+    if (deserializeJson(doc, body, DeserializationOption::Filter(filter)) != DeserializationError::Ok) return;
+    TideStore::Event ev[TideStore::MAX_EVENTS];
+    uint8_t n = 0;
+    for (JsonObjectConst e : doc["attributes"]["events"].as<JsonArrayConst>()) {
+        if (n >= TideStore::MAX_EVENTS) break;
+        const time_t t = WifiTimeSync::parseIsoOffset(e["time"].as<const char*>());
+        if (t == 0) continue;
+        const char* type = e["event_type"] | "";
+        ev[n].utc = (uint32_t)t;
+        ev[n].height_cm = (int16_t)lroundf((e["height"] | 0.0f) * 100.0f);
+        ev[n].high = (strstr(type, "High") != nullptr);
+        ev[n].pad = 0;
+        n++;
+    }
+    if (n == 0) return;
+    TideStore::store(ev, n, (uint32_t)now);
+    Serial.printf("[tides] %u events cached (Strood Pier)\n", n);
 }
 
 void SignalKSource::pollHomeAssistant() {

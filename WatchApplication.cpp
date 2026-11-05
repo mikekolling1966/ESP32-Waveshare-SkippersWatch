@@ -119,6 +119,7 @@ void WatchApplication::begin() {
     _clockUI.begin();
     _setupUI.begin();
     _celestialUI.begin();
+    _tidesUI.begin();       // local addition: ninth page (Tides)
     _menu.begin();           // hides ui_ContainerMenu (the export leaves it visible)
     _status.begin();         // hides ui_ContainerStatus (likewise) and writes its titles
 
@@ -148,6 +149,7 @@ void WatchApplication::begin() {
     _screenMgr.addScreen(&_clockUI);
     _screenMgr.addScreen(&_setupUI);
     _screenMgr.addScreen(&_celestialUI);
+    _screenMgr.addScreen(&_tidesUI);       // local addition: page 9, MenuUI::PAGE_TIDES
     // Restore the last-active page from RTC, else NVS, else Navigation. The actual
     // _screenMgr.begin(start_page) is deferred to after the dark listen window below, so
     // the page is revealed only once data has had a chance to arrive.
