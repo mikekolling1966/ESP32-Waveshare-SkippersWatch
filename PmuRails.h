@@ -45,8 +45,8 @@ public:
     void enterSleep();
 
     // Local addition: put the QMI8658 into low-power Wake-on-Motion with INT1 (GPIO21)
-    // idling LOW and going HIGH on a shake, so PowerManager can arm it as an ext1 wake
-    // source next to the PWR button. Returns false if the IMU did not answer.
+    // idling LOW and going HIGH on a shake (ImuShake), so PowerManager can arm it as an
+    // ext1 wake source next to the PWR button. False if the IMU did not take the setup.
     bool armImuWakeOnMotion();
 
     // Compact rail state for the Status screen: "DC 01 LDO 03 00" = AXP2101 registers
@@ -83,21 +83,6 @@ private:
     static constexpr uint8_t QMI_REG_CTRL1 = 0x02;
     static constexpr uint8_t QMI_CTRL1_SENSOR_DISABLE = 0x01;
     static constexpr uint8_t QMI_REG_CTRL7 = 0x08;
-    // Wake-on-Motion (QMI8658A datasheet §9 / SensorLib configWakeOnMotion)
-    static constexpr uint8_t QMI_REG_CTRL2 = 0x03;      // accel full scale + ODR
-    static constexpr uint8_t QMI_REG_CTRL9 = 0x0A;      // host command
-    static constexpr uint8_t QMI_REG_CAL1_L = 0x0B;     // WoM threshold, 1 mg/LSB
-    static constexpr uint8_t QMI_REG_CAL1_H = 0x0C;     // [7]=INT1 [6]=initial level [5:0]=blanking
-    static constexpr uint8_t QMI_REG_STATUSINT = 0x2D;  // [7] = command done
-    static constexpr uint8_t QMI_REG_STATUS1 = 0x2F;    // read clears the WoM flag
-    static constexpr uint8_t QMI_CMD_ACK = 0x00;
-    static constexpr uint8_t QMI_CMD_WRITE_WOM = 0x08;
-    static constexpr uint8_t QMI_CTRL1_INT1_EN = 0x08;
-    static constexpr uint8_t QMI_CTRL2_2G_21HZ_LP = 0x0D;  // ±2 g, 21 Hz low-power ODR
-    // Shake sensitivity: change in acceleration that counts as a shake. Higher = a firmer
-    // shake is needed (fewer wakes from arm movement / boat motion).
-    static constexpr uint8_t WOM_THRESHOLD_MG = 250;
-    static constexpr uint8_t WOM_BLANKING_SAMPLES = 8;     // ignore the first ~0.4 s after arming
 
     void unusedRailsOff();
     void codecsPowerDown();

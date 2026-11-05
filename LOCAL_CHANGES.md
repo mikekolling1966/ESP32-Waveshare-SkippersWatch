@@ -39,10 +39,18 @@ past tides dimmed, the next one marked `>`, and a "Next HW/LW in …" footer.
   `SLS_project_WS/assets/tides.png` / `nighttides.png`, not from SquareLine).
 
 ## Shake to show the time
-Before deep sleep the QMI8658 IMU is put into Wake-on-Motion (INT1 = GPIO21, armed as an
-ext1 wake source next to the PWR button). A shake wake shows the Clock for 5 s with the
-radio off; touching the screen turns it into a normal wake. Sensitivity:
-`WOM_THRESHOLD_MG` in `PmuRails.h`.
+Before deep sleep the QMI8658 IMU is put into low-power Wake-on-Motion (INT1 = GPIO21,
+idles LOW, armed as an ext1 wake source next to the PWR button). On a motion wake,
+`ImuShake::isDeliberateShake()` samples the accelerometer for up to 0.8 s before anything
+else powers up: only two jolts beyond 1 g +- 0.8 g count as a shake. A shake shows the
+Clock for 5 s with the radio off (touch -> normal wake); anything else (wrist turns,
+boat motion) re-arms the IMU and sleeps again with the screen dark. Tested on USB:
+gentle moves peaked at 0.15-0.97 g, firm shakes at 1.3-4.6 g.
+- IMU quirks found on this board: writes right after its oscillator restarts are dropped
+  (all settings are written with read-back), and in WoM mode the data registers freeze
+  (WoM is switched off before the shake check reads them).
+- Status screen: the "ESP-NOW packets" row is replaced by "Shake wakes" (shown / all).
+- Tuning: `SHAKE_JOLT_G`, `SHAKE_PEAKS`, `WOM_THRESHOLD_MG` in `ImuShake.h`.
 
 ## Building
 ```

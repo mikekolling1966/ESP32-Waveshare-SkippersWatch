@@ -2,6 +2,7 @@
 #include "StatusFormat.h"
 #include "ESPNowReceiver.h"
 #include "ui.h"
+#include "ImuShake.h"
 #include <esp_heap_caps.h>
 
 // Row titles, in display order. render() emits exactly one value line per entry.
@@ -14,7 +15,7 @@ static const char* const kTitles =
     "Min free heap\n"
     "Loop stack free\n"
     "Loop avg / max\n"
-    "ESP-NOW packets\n"
+    "Shake wakes\n"   // local change: was ESP-NOW packets (no gateways on this boat)
     "Resets\n"
     "Last reset\n"
     "Chip temp\n"
@@ -77,7 +78,7 @@ void StatusUI::render() {
 
     char buf[448];
     snprintf(buf, sizeof(buf),
-             "%s\n%lu\n%s\n%s\n%s\n%s\n%s\n%.1f / %.0f ms\n%lu\n%lu\n%s\n%.0f °C\n%u.%03u V\n%s\n%s",
+             "%s\n%lu\n%s\n%s\n%s\n%s\n%s\n%.1f / %.0f ms\n%lu / %lu\n%lu\n%s\n%.0f °C\n%u.%03u V\n%s\n%s",
              up,
              (unsigned long)_stats.wakeups(),
              awake,
@@ -86,7 +87,7 @@ void StatusUI::render() {
              heap_min,
              stack,
              _stats.loopAvgMs(), _stats.loopMaxMs(),
-             (unsigned long)_stats.radioFramesTotal(ESPNowReceiver::radioFrameCount()),
+             (unsigned long)ImuShake::shown(), (unsigned long)ImuShake::total(),   // shown / all shake wakes
              (unsigned long)_stats.unexpectedResets(),
              StatusFormat::resetReason(_stats.lastResetReason()),
              temperatureRead(),

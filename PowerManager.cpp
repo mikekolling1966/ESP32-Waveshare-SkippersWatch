@@ -49,6 +49,12 @@ bool PowerManager::handleTimerRecheck(esp_sleep_wakeup_cause_t cause) {
     return true;                   // unreachable: enterDeepSleep() does not return
 }
 
+void PowerManager::sleepAfterIgnoredShake(bool motion_armed) {
+    _motion_armed = motion_armed;
+    Serial.println("[power] motion wake was not a shake -> back to sleep");
+    this->enterDeepSleep(false);   // panel never initialised on this path; does not return
+}
+
 void PowerManager::begin(esp_sleep_wakeup_cause_t cause) {
     switch (cause) {
         case ESP_SLEEP_WAKEUP_EXT1:  Serial.println(wokeFromMotion() ? "[power] wake: shake" : "[power] wake: button"); break;

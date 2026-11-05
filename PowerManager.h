@@ -77,6 +77,10 @@ public:
     // other wake cause (normal boot continues); the true branch never actually returns.
     bool handleTimerRecheck(esp_sleep_wakeup_cause_t cause);
 
+    // Local addition: a motion wake that was not a deliberate shake. The IMU has already
+    // been re-armed (motion_armed); sleep again before the panel, UI or radio come up.
+    void sleepAfterIgnoredShake(bool motion_armed);
+
     // Battery source for the low-charge ladder and the USB stay-awake rule. Call before
     // begin(). Null is tolerated: the class then behaves exactly as it did pre-ladder.
     void attachBattery(const BatteryMonitor* battery) { _battery = battery; }

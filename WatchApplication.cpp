@@ -1,4 +1,5 @@
 #include "WatchApplication.h"
+#include "ImuShake.h"
 #include <Wire.h>
 #include <esp_heap_caps.h>
 #include <esp_system.h>
@@ -96,6 +97,15 @@ void WatchApplication::begin() {
     // Shared I2C bus (touch + PMIC). The PMIC comes up first: the battery level decides
     // below whether the radio is brought up at all.
     Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
+
+    // Local addition: a motion wake lights the screen only for a deliberate shake.
+    // Anything else (arm swing, boat motion) re-arms the IMU and sleeps again here,
+    // before the PMIC, panel and radio are touched: a few hundred ms at boot current.
+    if (PowerManager::wokeFromMotion()) {
+        const bool shake = ImuShake::isDeliberateShake(Wire);
+        ImuShake::countShake(shake);
+        if (!shake) _power.sleepAfterIgnoredShake(ImuShake::armWakeOnMotion(Wire));
+    }
     _battery.beginPmu(Wire, PIN_I2C_SDA, PIN_I2C_SCL);
     // Awake rail state BEFORE the panel init: the AMOLED module needs its supply enable
     // (ALDO2), and the codecs and IMU are powered down here, not later.
