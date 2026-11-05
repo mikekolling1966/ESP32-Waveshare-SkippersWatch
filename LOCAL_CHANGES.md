@@ -46,6 +46,9 @@ else powers up: only two jolts beyond 1 g +- 0.8 g count as a shake. A shake sho
 Clock for 5 s with the radio off (touch -> normal wake); anything else (wrist turns,
 boat motion) re-arms the IMU and sleeps again with the screen dark. Tested on USB:
 gentle moves peaked at 0.15-0.97 g, firm shakes at 1.3-4.6 g.
+- INT1 toggles on every motion event, so its level at sleep entry can be either value
+  (the watch was just moved). The motion wake uses ext0 on GPIO21 with the opposite of
+  the current level (button stays on ext1), so any change wakes it.
 - IMU quirks found on this board: writes right after its oscillator restarts are dropped
   (all settings are written with read-back), and in WoM mode the data registers freeze
   (WoM is switched off before the shake check reads them).

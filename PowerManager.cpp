@@ -57,7 +57,8 @@ void PowerManager::sleepAfterIgnoredShake(bool motion_armed) {
 
 void PowerManager::begin(esp_sleep_wakeup_cause_t cause) {
     switch (cause) {
-        case ESP_SLEEP_WAKEUP_EXT1:  Serial.println(wokeFromMotion() ? "[power] wake: shake" : "[power] wake: button"); break;
+        case ESP_SLEEP_WAKEUP_EXT0:  Serial.println("[power] wake: motion"); break;
+        case ESP_SLEEP_WAKEUP_EXT1:  Serial.println("[power] wake: button"); break;
         case ESP_SLEEP_WAKEUP_TIMER: Serial.println("[power] wake: timer");    break;
         default:                     Serial.println("[power] cold boot");      break;
     }
@@ -291,14 +292,21 @@ void PowerManager::armWakeSource() {
     // RTC-controller wake: works with the RTC_PERIPH domain powered down, which ext0
     // would keep on. No internal pull (it would not survive that domain anyway):
     // T1 holds SYS_OUT low at rest and R11 pulls it high on a press.
-    uint64_t mask = 1ULL << WAKE_BUTTON_PIN;
-    // Local addition: shake-to-wake. Only armed if the IMU took the Wake-on-Motion setup
-    // (gatePeripherals) and INT1 is idling low — a high INT1 would wake us at once.
-    pinMode(WAKE_MOTION_PIN, INPUT_PULLDOWN);
-    delayMicroseconds(200);
-    if (_motion_armed && digitalRead(WAKE_MOTION_PIN) == LOW) mask |= 1ULL << WAKE_MOTION_PIN;
-    else if (_motion_armed) Serial.println("[power] arm: motion INT1 high, shake wake skipped");
-    esp_sleep_enable_ext1_wakeup_io(mask, ESP_EXT1_WAKEUP_ANY_HIGH);
+    esp_sleep_enable_ext1_wakeup_io(1ULL << WAKE_BUTTON_PIN, ESP_EXT1_WAKEUP_ANY_HIGH);
+
+    // Local addition: shake-to-wake. The QMI8658 TOGGLES INT1 on every motion event, so its
+    // level at sleep entry is either value (the watch was just moved). Wake on the opposite
+    // of the current level via ext0 (its own pin and level, next to ext1 for the button).
+    // ext0 keeps the RTC peripheral domain on in sleep: a small cost next to the ~6 mA floor.
+    _motion_level = -1;
+    if (_motion_armed) {
+        pinMode(WAKE_MOTION_PIN, INPUT);
+        delayMicroseconds(200);
+        const int level = digitalRead(WAKE_MOTION_PIN);
+        rtc_gpio_pullup_dis((gpio_num_t)WAKE_MOTION_PIN);
+        rtc_gpio_pulldown_dis((gpio_num_t)WAKE_MOTION_PIN);   // INT1 is push-pull, driven both ways
+        if (esp_sleep_enable_ext0_wakeup((gpio_num_t)WAKE_MOTION_PIN, level ? 0 : 1) == ESP_OK) _motion_level = level;
+    }
 }
 
 // Subscribe the Arduino loop task to the task watchdog. The awake ceiling only fires
