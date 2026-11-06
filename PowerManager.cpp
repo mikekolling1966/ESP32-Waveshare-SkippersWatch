@@ -4,6 +4,7 @@
 #include "ESPNowReceiver.h"
 #include <driver/gpio.h>
 #include <driver/rtc_io.h>
+#include "ImuShake.h"
 #include <esp_task_wdt.h>
 
 // === P U B L I C ===
@@ -58,7 +59,7 @@ void PowerManager::sleepAfterIgnoredShake(bool motion_armed) {
 void PowerManager::begin(esp_sleep_wakeup_cause_t cause) {
     switch (cause) {
         case ESP_SLEEP_WAKEUP_EXT0:  Serial.println("[power] wake: motion"); break;
-        case ESP_SLEEP_WAKEUP_EXT1:  Serial.println("[power] wake: button"); break;
+        case ESP_SLEEP_WAKEUP_EXT1:  Serial.println("[power] wake: button"); ImuShake::clearSuspend(); break;
         case ESP_SLEEP_WAKEUP_TIMER: Serial.println("[power] wake: timer");    break;
         default:                     Serial.println("[power] cold boot");      break;
     }
@@ -221,7 +222,9 @@ void PowerManager::gatePeripherals() {
     if (_touch != nullptr) _touch->hibernate();
     if (_rails != nullptr) {
         _rails->enterSleep();
-        _motion_armed = _rails->armImuWakeOnMotion();   // last I2C traffic of this wake
+        // Shake to wake (off by default): when off, the IMU stays powered down in sleep as
+        // upstream intends (PmuRails::imuPowerDown on every wake) and only PWR wakes the watch.
+        _motion_armed = SHAKE_WAKE_ENABLED && _rails->armImuWakeOnMotion();   // last I2C traffic of this wake
     }
     this->definePads();
 
@@ -299,10 +302,19 @@ void PowerManager::armWakeSource() {
     // of the current level via ext0 (its own pin and level, next to ext1 for the button).
     // ext0 keeps the RTC peripheral domain on in sleep: a small cost next to the ~6 mA floor.
     _motion_level = -1;
-    if (_motion_armed) {
+    if (_motion_armed && ImuShake::motionAllowed()) {
+        // Arming WoM can itself toggle INT1 a moment later; sleeping before that toggle
+        // makes it wake the watch at once, in a loop (measured: ~1 wake/s while still,
+        // flat battery overnight). Wait until INT1 has been steady for SETTLE_MS.
         pinMode(WAKE_MOTION_PIN, INPUT);
-        delayMicroseconds(200);
-        const int level = digitalRead(WAKE_MOTION_PIN);
+        int level = digitalRead(WAKE_MOTION_PIN);
+        const uint32_t t0 = millis();
+        uint32_t steady_since = t0;
+        while (millis() - steady_since < MOTION_SETTLE_MS && millis() - t0 < MOTION_SETTLE_MAX_MS) {
+            delay(5);
+            const int v = digitalRead(WAKE_MOTION_PIN);
+            if (v != level) { level = v; steady_since = millis(); }
+        }
         rtc_gpio_pullup_dis((gpio_num_t)WAKE_MOTION_PIN);
         rtc_gpio_pulldown_dis((gpio_num_t)WAKE_MOTION_PIN);   // INT1 is push-pull, driven both ways
         if (esp_sleep_enable_ext0_wakeup((gpio_num_t)WAKE_MOTION_PIN, level ? 0 : 1) == ESP_OK) _motion_level = level;

@@ -1,4 +1,5 @@
 #include "ImuShake.h"
+#include <time.h>
 
 namespace {
     constexpr uint8_t ADDR = 0x6B;
@@ -15,6 +16,9 @@ namespace {
     constexpr uint8_t CMD_ACK = 0x00, CMD_WRITE_WOM = 0x08;
 
     RTC_DATA_ATTR uint32_t s_shown = 0, s_total = 0;
+    RTC_DATA_ATTR uint32_t s_ign_window_start = 0, s_suspend_until = 0;
+    RTC_DATA_ATTR uint8_t  s_ign_count = 0;
+    uint32_t nowS() { return (uint32_t)time(nullptr); }   // RTC time keeps running in deep sleep
     float s_last_max_dev = 0;
 
     bool rd(TwoWire& w, uint8_t reg, uint8_t& v) {
@@ -114,6 +118,19 @@ bool ImuShake::isDeliberateShake(TwoWire& w) {
 
 float ImuShake::lastMaxDeviationG() { return s_last_max_dev; }
 
-void ImuShake::countShake(bool shown) { s_total++; if (shown) s_shown++; }
+void ImuShake::countShake(bool shown) {
+    s_total++;
+    if (shown) { s_shown++; s_ign_count = 0; return; }
+    const uint32_t now = nowS();
+    if (s_ign_count == 0 || now - s_ign_window_start > SUSPEND_WINDOW_S) { s_ign_window_start = now; s_ign_count = 0; }
+    if (++s_ign_count >= SUSPEND_AFTER) {
+        s_suspend_until = now + SUSPEND_FOR_S;
+        s_ign_count = 0;
+        Serial.println("[shake] too many motion wakes without a shake -> motion wake off for 15 min");
+    }
+}
+bool ImuShake::motionAllowed() { return nowS() >= s_suspend_until; }
+bool ImuShake::suspended() { return !motionAllowed(); }
+void ImuShake::clearSuspend() { s_suspend_until = 0; s_ign_count = 0; }
 uint32_t ImuShake::shown() { return s_shown; }
 uint32_t ImuShake::total() { return s_total; }

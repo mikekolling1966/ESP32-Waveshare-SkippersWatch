@@ -19,6 +19,11 @@ namespace ImuShake {
     bool armWakeOnMotion(TwoWire& w);
     bool isDeliberateShake(TwoWire& w);
     void countShake(bool shown);
+    // Safety net against wake loops: SUSPEND_AFTER ignored motion wakes within
+    // SUSPEND_WINDOW_S switch motion wake off for SUSPEND_FOR_S (a button wake clears it).
+    bool motionAllowed();
+    void clearSuspend();
+    bool suspended();
     uint32_t shown();
     uint32_t total();
     float lastMaxDeviationG();   // strongest jolt seen by the last check (for tuning/logs)
@@ -29,4 +34,7 @@ namespace ImuShake {
     constexpr float    SHAKE_JOLT_G     = 0.8f;  // |a| beyond 1 g +- this counts as a jolt
     constexpr int      SHAKE_PEAKS      = 2;
     constexpr uint32_t PEAK_GAP_MS      = 80;    // jolts closer than this are one jolt
+    constexpr uint8_t  SUSPEND_AFTER    = 10;
+    constexpr uint32_t SUSPEND_WINDOW_S = 120;
+    constexpr uint32_t SUSPEND_FOR_S    = 900;
 }

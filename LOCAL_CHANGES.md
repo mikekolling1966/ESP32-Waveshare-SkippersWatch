@@ -38,7 +38,15 @@ past tides dimmed, the next one marked `>`, and a "Next HW/LW in …" footer.
   bottom-right slot (`ui_img_tides_png.c` / `ui_img_nighttides_png.c`, generated from
   `SLS_project_WS/assets/tides.png` / `nighttides.png`, not from SquareLine).
 
-## Shake to show the time
+## Shake to show the time — OFF (2026-11-06)
+Switched off (`SHAKE_WAKE_ENABLED = false` in `PowerManager.h`) after it drained the battery
+overnight: arming Wake-on-Motion toggled INT1 a moment later, which woke the watch at once,
+~1 wake/s while lying still (measured: 108 wakes in 2 min). With it off, the IMU stays
+powered down in sleep as upstream intends and only PWR wakes the watch (verified: no wakes
+in 90 s). The code stays for a future attempt, now with two safeguards: INT1 must be steady
+for 300 ms before sleeping, and 10 motion wakes without a shake in 2 min suspend motion
+wake for 15 min (a PWR wake clears it). Original notes:
+
 Before deep sleep the QMI8658 IMU is put into low-power Wake-on-Motion (INT1 = GPIO21,
 idles LOW, armed as an ext1 wake source next to the PWR button). On a motion wake,
 `ImuShake::isDeliberateShake()` samples the accelerometer for up to 0.8 s before anything

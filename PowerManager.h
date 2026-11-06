@@ -210,8 +210,14 @@ private:
     // key: ~6 s held cuts power in hardware, whatever the firmware does.
     static constexpr uint8_t WAKE_BUTTON_PIN = 10;
     static constexpr uint8_t WAKE_MOTION_PIN = 21;   // local addition: QMI8658 INT1 (shake)
+    // Local addition: shake to wake. OFF at Mike's request (2026-11-06) after a wake loop
+    // drained the battery overnight; the settle + rate-limit safeguards below stay in place
+    // in case it is switched back on.
+    static constexpr bool SHAKE_WAKE_ENABLED = false;
     bool _motion_armed = false;
     int  _motion_level = -1;   // INT1 level at sleep entry (-1 = motion wake not armed)
+    static constexpr uint32_t MOTION_SETTLE_MS = 300;       // INT1 must be steady this long
+    static constexpr uint32_t MOTION_SETTLE_MAX_MS = 1500;  // ...within this time, else arm anyway
 
     // Pins latched through deep sleep: panel and touch reset lines held HIGH so both chips
     // stay in their sleep modes (a floating reset could reboot them into active mode), and
