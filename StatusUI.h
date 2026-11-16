@@ -39,7 +39,7 @@ private:
     static constexpr uint32_t REFRESH_MS = 1000;
 
     // Fitted cell, for the "Avg drain" estimate (gauge % → mAh)
-    static constexpr uint16_t BATTERY_CAPACITY_MAH = 400;
+    static constexpr uint16_t BATTERY_CAPACITY_MAH = 900;   // Local change: 900 mAh cell in the thicker case (was 400)
 
     const SystemStats& _stats;
     const BatteryMonitor& _battery;
